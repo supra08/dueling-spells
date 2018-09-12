@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+canvas {
+    border: 1px solid #d3d3d3; 
+    background: url('./assets/back_2.jpg');
+    background-repeat: no-repeat;
+    background-size: cover; 
+}
+.main-block {
+    display: flex;
+    flex-direction: row;
+}
+.scoreboard {
+    padding-left: 3vw;
+    color: white;
+}
+.stats, .score {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    background-color: brown;
+    width: 400px;
+    margin-bottom: 10px;
+    padding-top: 4px;
+    border-right: 1px solid white;
+}
+
+.stats h1{
+    border-right: 1px solid white;
+}
+
+.heading {
+    width: 400px;
+    background-color: brown;
+    padding-left: 15spx;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+#current-spell {
+    color: white;
+    /*text-align: center;*/
+}
+
+#spell-box {
+    margin-top: 5px;
+    padding-top: 15px;
+    color: white;
+    background-color: brown;
+    width: 400px;
+}
+
+#spell-box div {
+    background-color: #ffa64d;
+    color: black;
+    margin-top: 5px;
+    text-align: center;
+}
+
+/*input {
+    width: 400px;
+}*/
+input[type=text], select {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+input[type=submit] {
+    width: 100%;
+    background-color: brown;
+    color: white;
+    padding: 14px 20px;
+    margin: 8px 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+input[type=submit]:hover {
+    background-color: #45a049;
+}
+
+</style>
+</head>
+<body onload="startGame()">
+
+<div class="main-block">
+    <div class="main-canvas">
+    <img src="./assets/wizard-1.png" alt="harry" id="harry" style="display: none;">
+    <img src="./assets/evil-2.png" alt="voldemort" id="voldemort" style="display: none;">
+    <canvas id="myCanvas" width="800" height="450"></canvas>
+    <form action="#">
+        <input type="text" id="console"></input>
+        <input type="submit" id="spell" value="Execute Spell"></input>
+    </form>
+    </div>
+    <div class="scoreboard">
+    <hr/>
+    <hr/>
+    <div class="score">
+        Characters/min<h3 id="CPM"></h3>
+        Words/min<h3 id="WPM"></h3>
+    </div>
+    <div class="score">
+        &#9829; Hero<h1 id="harry-score">100</h1>
+        &#9829; Rival<h1 id="evil-score">100</h1>
+    </div>
+    <div class="heading"><h3>Current Spell</h3><div id="current-spell"></div></div>
+    <div id="spell-box">
+        <h3>List of available spells:</h3>
+    </div>
+    </div>    
+</div>
+
+<script>
+var canvas;
+var ctx;
+var img;
+var spellLength;
+var spellWidth;
+var dx;
+var speed;
+var scoreHarry = 100;
+var scoreRival = 100;
+var requestAnimationFrame;
+var x, y, rx, ry;
+var iLastTime=0, iTime=0, iTotal=0, iKeys=0;
+var lastDownTarget;
+var spells = ['', 'stupefy', 'repello', 'crucio', 'protego', 'expulso', 'relashio', 'expelliarmus', 'avada kedavra', 'expecto petronum'];
+
+for (spell in spells) {
+    if (spell == 0)
+        continue;
+    var division = document.createElement("div");
+    var text = document.createTextNode(spells[spell]);
+    var weight = document.createTextNode("     "+spell);
+    division.appendChild(text);
+    division.appendChild(weight);
+    console.log(spells[spell]);
+    document.getElementById('spell-box').appendChild(division);
+}
+
+
+function isInArray(value, array) {
+    if (array.indexOf(value) > -1)
+        return array.indexOf(value);
+    else
+        return false;
+}
+
+
+window.onload = function() {
+    canvas = document.getElementById("myCanvas");
+    ctx = canvas.getContext("2d");
+    spellLength = 80;
+    spellWidth = 2;
+    dx = 8;
+    speed = 1;
+    x = 45;
+    rx = 45;
+    y = 360;
+    ry = 360;
+    requestAnimationFrame = window.requestAnimationFrame || 
+                        window.mozRequestAnimationFrame || 
+                        window.webkitRequestAnimationFrame || 
+                        window.msRequestAnimationFrame;
+    imgHarry = document.getElementById("harry");
+    ctx.drawImage(imgHarry, x, y - 18, 50, 50);  
+    imgVoldemort = document.getElementById("voldemort");
+    ctx.drawImage(imgVoldemort, x + 655, y + 5, 60, 60);
+    document.getElementById('console').focus();
+    rivalAttack(); 
+    document.getElementById('spell').addEventListener('click', spellHandler, false);
+    document.getElementById('console').addEventListener('keyup', checkSpeed);
+}
+
+function checkSpeed(e) {
+    iTime = new Date().getTime();
+    if (iLastTime != 0) {
+        iKeys++;
+        iTotal += iTime - iLastTime;
+        iWords = iKeys / 8;
+        document.getElementById('CPM').innerHTML = Math.round(iKeys / iTotal * 6000, 2);
+        document.getElementById('WPM').innerHTML = Math.round(iWords / iTotal * 6000, 2);
+    }
+
+    iLastTime = iTime;
+}
+
+function spellHandler() {
+    var spellWeight = spellListener();
+    if(spellWeight) {
+         if (y == ry) {
+        rivalScoreHandler(spellWeight);
+         }
+        var id = setInterval(createBeam, 5);
+        function createBeam() {
+        if(spellLength == 400) {
+            clearInterval(id);
+            setTimeout(function() {
+                ctx.clearRect(x + 45, y + 18, spellLength, spellWidth);    
+            }, 500);
+        }
+        else {
+            ctx.beginPath();
+            ctx.fillStyle = "#0095DD";
+            ctx.fillRect(x + 45, y + 18, spellLength, spellWidth);
+            ctx.closePath();
+            spellLength = spellLength + dx;
+        }
+     }
+    spellLength = 80;
+    }
+    else {
+        document.getElementById('current-spell').innerHTML = "Wrong Spell";
+    }   
+}
+
+function spellListener() {
+    var validSpell = null;
+    var spell = document.getElementById('console').value;
+    document.getElementById('console').value = '';
+    if (isInArray(spell, spells)) {
+        console.log(spell);
+        validSpell = isInArray(spell, spells);
+        console.log(validSpell);
+    }
+    else {
+        console.log("no spell");
+    }
+    console.log(spell);
+    document.getElementById('current-spell').innerHTML = spell;
+    return validSpell;
+}
+
+function rivalAttack() {
+    var counter = 100;
+    var intervalFunc = function() {
+        rivalSpellHandler();
+        clearInterval(interval);
+        rand = Math.random()*3 + 2;
+        counter = 300*rand;
+        interval = setInterval(intervalFunc, counter);
+    }
+    var interval = setInterval(intervalFunc, counter);
+}
+
+function rivalSpellHandler() {
+    var rivalSpellLength = -80;
+    var rivalId = setInterval(createRivalBeam, 5);
+    if (y == ry)
+    {
+        harryScoreHandler();
+    }
+    function createRivalBeam() {
+        // console.log(rivalId);
+        if(rivalSpellLength == -400) {
+            clearInterval(rivalId);
+            setTimeout(function() {
+                ctx.clearRect(700, ry + 18, rivalSpellLength, spellWidth);    
+            }, 100);
+        }
+        else {
+            ctx.beginPath();
+            ctx.fillStyle = "#ff0000";
+            ctx.fillRect(700, ry + 18, rivalSpellLength, spellWidth);
+            ctx.closePath();
+            rivalSpellLength = rivalSpellLength - dx;
+        }
+    }
+}
+
+function rivalScoreHandler(weight) { 
+    scoreRival = scoreRival - weight;
+    document.getElementById('evil-score').innerHTML = scoreRival;
+    if(scoreRival == 0) {
+        if(confirm("You won... Nice duel it was... Click OK for a new challenge")) {
+            window.location.reload(false); 
+        }
+    }
+}
+
+function harryScoreHandler() {
+    scoreHarry--;
+    document.getElementById('harry-score').innerHTML = scoreHarry;
+    if(scoreHarry == 0){
+        if(confirm("You won... Nice duel it was... Click OK for a new challenge")) {
+        window.location.reload(false); 
+        }
+    }
+
+}
+function render() {
+    ctx.drawImage(imgHarry, x, y, 50, 50);
+}
+
+
+</script>
+
+<p>Rev up!!! for the ultimate magic adventure...</p>
+
+</body>
+</html>
